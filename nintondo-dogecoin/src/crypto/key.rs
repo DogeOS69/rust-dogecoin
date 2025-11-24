@@ -6,18 +6,18 @@
 //! This module provides keys used in Dogecoin that can be roundtrip
 //! (de)serialized.
 
-use crate::prelude::*;
-
 use core::fmt::{self, Write};
-use core::{ops, str::FromStr};
+use core::ops;
+use core::str::FromStr;
 
 use bitcoin_internals::write_err;
-
 pub use secp256k1::{self, constants, KeyPair, Parity, Secp256k1, Verification, XOnlyPublicKey};
 
 use crate::hash_types::{PubkeyHash, WPubkeyHash};
-use crate::hashes::{hash160, hex, hex::FromHex, Hash};
+use crate::hashes::hex::FromHex;
+use crate::hashes::{hash160, hex, Hash};
 use crate::network::constants::Network;
+use crate::prelude::*;
 use crate::taproot::{TapNodeHash, TapTweakHash};
 use crate::{base58, io};
 
@@ -68,23 +68,17 @@ impl std::error::Error for Error {
 
 #[doc(hidden)]
 impl From<base58::Error> for Error {
-    fn from(e: base58::Error) -> Error {
-        Error::Base58(e)
-    }
+    fn from(e: base58::Error) -> Error { Error::Base58(e) }
 }
 
 #[doc(hidden)]
 impl From<secp256k1::Error> for Error {
-    fn from(e: secp256k1::Error) -> Error {
-        Error::Secp256k1(e)
-    }
+    fn from(e: secp256k1::Error) -> Error { Error::Secp256k1(e) }
 }
 
 #[doc(hidden)]
 impl From<hex::Error> for Error {
-    fn from(e: hex::Error) -> Self {
-        Error::Hex(e)
-    }
+    fn from(e: hex::Error) -> Self { Error::Hex(e) }
 }
 
 /// A Dogecoin ECDSA public key
@@ -117,9 +111,7 @@ impl PublicKey {
     }
 
     /// Returns bitcoin 160-bit hash of the public key
-    pub fn pubkey_hash(&self) -> PubkeyHash {
-        self.with_serialized(PubkeyHash::hash)
-    }
+    pub fn pubkey_hash(&self) -> PubkeyHash { self.with_serialized(PubkeyHash::hash) }
 
     /// Returns bitcoin 160-bit hash of the public key for witness program
     pub fn wpubkey_hash(&self) -> Option<WPubkeyHash> {
@@ -293,9 +285,7 @@ impl FromStr for PublicKey {
 }
 
 impl From<PublicKey> for PubkeyHash {
-    fn from(key: PublicKey) -> PubkeyHash {
-        key.pubkey_hash()
-    }
+    fn from(key: PublicKey) -> PubkeyHash { key.pubkey_hash() }
 }
 
 /// A Dogecoin ECDSA private key
@@ -332,9 +322,7 @@ impl PrivateKey {
     }
 
     /// Serialize the private key to bytes
-    pub fn to_bytes(self) -> Vec<u8> {
-        self.inner[..].to_vec()
-    }
+    pub fn to_bytes(self) -> Vec<u8> { self.inner[..].to_vec() }
 
     /// Deserialize a private key from a slice
     pub fn from_slice(data: &[u8], network: Network) -> Result<PrivateKey, Error> {
@@ -395,30 +383,22 @@ impl PrivateKey {
 }
 
 impl fmt::Display for PrivateKey {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.fmt_wif(f)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { self.fmt_wif(f) }
 }
 
 #[cfg(not(feature = "std"))]
 impl fmt::Debug for PrivateKey {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[private key data]")
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "[private key data]") }
 }
 
 impl FromStr for PrivateKey {
     type Err = Error;
-    fn from_str(s: &str) -> Result<PrivateKey, Error> {
-        PrivateKey::from_wif(s)
-    }
+    fn from_str(s: &str) -> Result<PrivateKey, Error> { PrivateKey::from_wif(s) }
 }
 
 impl ops::Index<ops::RangeFull> for PrivateKey {
     type Output = [u8];
-    fn index(&self, _: ops::RangeFull) -> &[u8] {
-        &self.inner[..]
-    }
+    fn index(&self, _: ops::RangeFull) -> &[u8] { &self.inner[..] }
 }
 
 #[cfg(feature = "serde")]
@@ -540,20 +520,15 @@ pub type UntweakedPublicKey = XOnlyPublicKey;
 /// Tweaked BIP-340 X-coord-only public key
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(crate = "actual_serde"))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 pub struct TweakedPublicKey(XOnlyPublicKey);
 
 impl fmt::LowerHex for TweakedPublicKey {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::LowerHex::fmt(&self.0, f)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::LowerHex::fmt(&self.0, f) }
 }
 
 impl fmt::Display for TweakedPublicKey {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.0, f)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(&self.0, f) }
 }
 
 /// Untweaked BIP-340 key pair
@@ -576,7 +551,6 @@ pub type UntweakedKeyPair = KeyPair;
 /// ```
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(crate = "actual_serde"))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 pub struct TweakedKeyPair(KeyPair);
 
@@ -640,9 +614,7 @@ impl TapTweak for UntweakedPublicKey {
         (TweakedPublicKey(output_key), parity)
     }
 
-    fn dangerous_assume_tweaked(self) -> TweakedPublicKey {
-        TweakedPublicKey(self)
-    }
+    fn dangerous_assume_tweaked(self) -> TweakedPublicKey { TweakedPublicKey(self) }
 }
 
 impl TapTweak for UntweakedKeyPair {
@@ -672,9 +644,7 @@ impl TapTweak for UntweakedKeyPair {
         TweakedKeyPair(tweaked)
     }
 
-    fn dangerous_assume_tweaked(self) -> TweakedKeyPair {
-        TweakedKeyPair(self)
-    }
+    fn dangerous_assume_tweaked(self) -> TweakedKeyPair { TweakedKeyPair(self) }
 }
 
 impl TweakedPublicKey {
@@ -696,17 +666,13 @@ impl TweakedPublicKey {
     }
 
     /// Returns the underlying public key.
-    pub fn to_inner(self) -> XOnlyPublicKey {
-        self.0
-    }
+    pub fn to_inner(self) -> XOnlyPublicKey { self.0 }
 
     /// Serialize the key as a byte-encoded pair of values. In compressed form
     /// the y-coordinate is represented by only a single bit, as x determines
     /// it up to one bit.
     #[inline]
-    pub fn serialize(&self) -> [u8; constants::SCHNORR_PUBLIC_KEY_SIZE] {
-        self.0.serialize()
-    }
+    pub fn serialize(&self) -> [u8; constants::SCHNORR_PUBLIC_KEY_SIZE] { self.0.serialize() }
 }
 
 impl TweakedKeyPair {
@@ -716,15 +682,11 @@ impl TweakedKeyPair {
     /// This method is dangerous and can lead to loss of funds if used incorrectly.
     /// Specifically, in multi-party protocols a peer can provide a value that allows them to steal.
     #[inline]
-    pub fn dangerous_assume_tweaked(pair: KeyPair) -> TweakedKeyPair {
-        TweakedKeyPair(pair)
-    }
+    pub fn dangerous_assume_tweaked(pair: KeyPair) -> TweakedKeyPair { TweakedKeyPair(pair) }
 
     /// Returns the underlying key pair.
     #[inline]
-    pub fn to_inner(self) -> KeyPair {
-        self.0
-    }
+    pub fn to_inner(self) -> KeyPair { self.0 }
 
     /// Returns the [`TweakedPublicKey`] and its [`Parity`] for this [`TweakedKeyPair`].
     #[inline]
@@ -736,38 +698,30 @@ impl TweakedKeyPair {
 
 impl From<TweakedPublicKey> for XOnlyPublicKey {
     #[inline]
-    fn from(pair: TweakedPublicKey) -> Self {
-        pair.0
-    }
+    fn from(pair: TweakedPublicKey) -> Self { pair.0 }
 }
 
 impl From<TweakedKeyPair> for KeyPair {
     #[inline]
-    fn from(pair: TweakedKeyPair) -> Self {
-        pair.0
-    }
+    fn from(pair: TweakedKeyPair) -> Self { pair.0 }
 }
 
 impl From<TweakedKeyPair> for TweakedPublicKey {
     #[inline]
-    fn from(pair: TweakedKeyPair) -> Self {
-        TweakedPublicKey::from_keypair(pair)
-    }
+    fn from(pair: TweakedKeyPair) -> Self { TweakedPublicKey::from_keypair(pair) }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use std::str::FromStr;
 
     use secp256k1::Secp256k1;
 
+    use super::*;
     use crate::address::Address;
     use crate::hashes::hex::FromHex;
     use crate::io;
-    use crate::network::constants::Network::Dogecoin;
-    use crate::network::constants::Network::Testnet;
+    use crate::network::constants::Network::{Dogecoin, Testnet};
 
     #[test]
     fn test_key_derivation() {

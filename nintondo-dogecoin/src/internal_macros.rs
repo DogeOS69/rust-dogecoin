@@ -82,9 +82,7 @@ macro_rules! impl_bytes_newtype {
         impl $t {
             /// Returns a reference the underlying bytes.
             #[inline]
-            pub fn as_bytes(&self) -> &[u8; $len] {
-                &self.0
-            }
+            pub fn as_bytes(&self) -> &[u8; $len] { &self.0 }
 
             /// Returns the underlying bytes.
             #[inline]

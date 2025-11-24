@@ -158,9 +158,8 @@ mod message_signing {
                     let pubkey = self.recover_pubkey(secp_ctx, msg_hash)?;
                     Ok(*address == Address::p2pkh(&pubkey, address.network))
                 }
-                Some(address_type) => {
-                    Err(MessageSignatureError::UnsupportedAddressType(address_type))
-                }
+                Some(address_type) =>
+                    Err(MessageSignatureError::UnsupportedAddressType(address_type)),
                 None => Ok(false),
             }
         }
@@ -176,9 +175,7 @@ mod message_signing {
         /// Convert to base64 encoding.
         #[cfg(feature = "base64")]
         #[cfg_attr(docsrs, doc(cfg(feature = "base64")))]
-        pub fn to_base64(self) -> String {
-            base64::encode(&self.serialize()[..])
-        }
+        pub fn to_base64(self) -> String { base64::encode(&self.serialize()[..]) }
     }
 
     #[cfg(feature = "base64")]

@@ -7,10 +7,12 @@ use core::fmt;
 use core::ops::Bound;
 use core::ops::{Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
+#[cfg(feature = "secp256k1")]
 use secp256k1::{Secp256k1, Verification};
 
 use crate::address::WitnessVersion;
-use crate::blockdata::opcodes::{self, all::*};
+use crate::blockdata::opcodes::all::*;
+use crate::blockdata::opcodes::{self};
 #[cfg(feature = "bitcoinconsensus")]
 use crate::blockdata::script::Error;
 use crate::blockdata::script::{
@@ -19,9 +21,11 @@ use crate::blockdata::script::{
 use crate::consensus::Encodable;
 use crate::hash_types::{ScriptHash, WScriptHash};
 use crate::hashes::Hash;
+#[cfg(feature = "secp256k1")]
 use crate::key::{PublicKey, UntweakedPublicKey};
 use crate::policy::DUST_RELAY_TX_FEE;
 use crate::prelude::*;
+#[cfg(feature = "secp256k1")]
 use crate::taproot::{LeafVersion, TapLeafHash, TapNodeHash};
 
 /// Dogecoin script slice.
@@ -76,9 +80,7 @@ pub struct Script(pub(in crate::blockdata::script) [u8]);
 impl ToOwned for Script {
     type Owned = ScriptBuf;
 
-    fn to_owned(&self) -> Self::Owned {
-        ScriptBuf(self.0.to_owned())
-    }
+    fn to_owned(&self) -> Self::Owned { ScriptBuf(self.0.to_owned()) }
 }
 
 impl Script {
@@ -106,79 +108,59 @@ impl Script {
 
     /// Returns the script data as a byte slice.
     #[inline]
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
+    pub fn as_bytes(&self) -> &[u8] { &self.0 }
 
     /// Returns the script data as a mutable byte slice.
     #[inline]
-    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
+    pub fn as_mut_bytes(&mut self) -> &mut [u8] { &mut self.0 }
 
     /// Creates a new empty script.
     #[inline]
-    pub fn empty() -> &'static Script {
-        Script::from_bytes(&[])
-    }
+    pub fn empty() -> &'static Script { Script::from_bytes(&[]) }
 
     /// Creates a new script builder
-    pub fn builder() -> Builder {
-        Builder::new()
-    }
+    pub fn builder() -> Builder { Builder::new() }
 
     /// Returns 160-bit hash of the script.
     #[inline]
-    pub fn script_hash(&self) -> ScriptHash {
-        ScriptHash::hash(self.as_bytes())
-    }
+    pub fn script_hash(&self) -> ScriptHash { ScriptHash::hash(self.as_bytes()) }
 
     /// Returns 256-bit hash of the script for P2WSH outputs.
     #[inline]
-    pub fn wscript_hash(&self) -> WScriptHash {
-        WScriptHash::hash(self.as_bytes())
-    }
+    pub fn wscript_hash(&self) -> WScriptHash { WScriptHash::hash(self.as_bytes()) }
 
     /// Computes leaf hash of tapscript.
     #[inline]
+    #[cfg(feature = "secp256k1")]
     pub fn tapscript_leaf_hash(&self) -> TapLeafHash {
         TapLeafHash::from_script(self, LeafVersion::TapScript)
     }
 
     /// Returns the length in bytes of the script.
     #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
+    pub fn len(&self) -> usize { self.0.len() }
 
     /// Returns whether the script is the empty script.
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
+    pub fn is_empty(&self) -> bool { self.0.is_empty() }
 
     /// Returns a copy of the script data.
     #[inline]
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_owned()
-    }
+    pub fn to_bytes(&self) -> Vec<u8> { self.0.to_owned() }
 
     /// Returns an iterator over script bytes.
     #[inline]
-    pub fn bytes(&self) -> Bytes<'_> {
-        Bytes(self.as_bytes().iter().copied())
-    }
+    pub fn bytes(&self) -> Bytes<'_> { Bytes(self.as_bytes().iter().copied()) }
 
     /// Computes the P2WSH output corresponding to this witnessScript (aka the "witness redeem
     /// script").
     #[inline]
-    pub fn to_v0_p2wsh(&self) -> ScriptBuf {
-        ScriptBuf::new_v0_p2wsh(&self.wscript_hash())
-    }
+    pub fn to_v0_p2wsh(&self) -> ScriptBuf { ScriptBuf::new_v0_p2wsh(&self.wscript_hash()) }
 
     /// Computes P2TR output with a given internal key and a single script spending path equal to
     /// the current script, assuming that the script is a Tapscript.
     #[inline]
+    #[cfg(feature = "secp256k1")]
     pub fn to_v1_p2tr<C: Verification>(
         &self,
         secp: &Secp256k1<C>,
@@ -220,9 +202,7 @@ impl Script {
     /// You can obtain the public key, if its valid,
     /// by calling [`p2pk_public_key()`](Self::p2pk_public_key)
     #[inline]
-    pub fn is_p2pk(&self) -> bool {
-        self.p2pk_pubkey_bytes().is_some()
-    }
+    pub fn is_p2pk(&self) -> bool { self.p2pk_pubkey_bytes().is_some() }
 
     /// Returns the public key if this script is P2PK with a **valid** public key.
     ///
@@ -230,6 +210,7 @@ impl Script {
     /// This happens when the public key is invalid (e.g. the point not being on the curve).
     /// It also implies the script is unspendable.
     #[inline]
+    #[cfg(feature = "secp256k1")]
     pub fn p2pk_public_key(&self) -> Option<PublicKey> {
         PublicKey::from_slice(self.p2pk_pubkey_bytes()?).ok()
     }
@@ -238,12 +219,10 @@ impl Script {
     #[inline]
     pub(in crate::blockdata::script) fn p2pk_pubkey_bytes(&self) -> Option<&[u8]> {
         match self.len() {
-            67 if self.0[0] == OP_PUSHBYTES_65.to_u8() && self.0[66] == OP_CHECKSIG.to_u8() => {
-                Some(&self.0[1..66])
-            }
-            35 if self.0[0] == OP_PUSHBYTES_33.to_u8() && self.0[34] == OP_CHECKSIG.to_u8() => {
-                Some(&self.0[1..34])
-            }
+            67 if self.0[0] == OP_PUSHBYTES_65.to_u8() && self.0[66] == OP_CHECKSIG.to_u8() =>
+                Some(&self.0[1..66]),
+            35 if self.0[0] == OP_PUSHBYTES_33.to_u8() && self.0[34] == OP_CHECKSIG.to_u8() =>
+                Some(&self.0[1..34]),
             _ => None,
         }
     }
@@ -354,7 +333,7 @@ impl Script {
     ///
     /// To force minimal pushes, use [`instructions_minimal`](Self::instructions_minimal).
     #[inline]
-    pub fn instructions(&self) -> Instructions {
+    pub fn instructions(&self) -> Instructions<'_> {
         Instructions { data: self.0.iter(), enforce_minimal: false }
     }
 
@@ -363,7 +342,7 @@ impl Script {
     /// This is similar to [`instructions`](Self::instructions) but an error is returned if a push
     /// is not minimal.
     #[inline]
-    pub fn instructions_minimal(&self) -> Instructions {
+    pub fn instructions_minimal(&self) -> Instructions<'_> {
         Instructions { data: self.0.iter(), enforce_minimal: true }
     }
 
@@ -375,7 +354,7 @@ impl Script {
     ///
     /// To force minimal pushes, use [`Self::instruction_indices_minimal`].
     #[inline]
-    pub fn instruction_indices(&self) -> InstructionIndices {
+    pub fn instruction_indices(&self) -> InstructionIndices<'_> {
         InstructionIndices::from_instructions(self.instructions())
     }
 
@@ -384,7 +363,7 @@ impl Script {
     /// This is similar to [`instruction_indices`](Self::instruction_indices) but an error is
     /// returned if a push is not minimal.
     #[inline]
-    pub fn instruction_indices_minimal(&self) -> InstructionIndices {
+    pub fn instruction_indices_minimal(&self) -> InstructionIndices<'_> {
         InstructionIndices::from_instructions(self.instructions_minimal())
     }
 
@@ -447,9 +426,7 @@ impl Script {
     /// This is a more convenient and performant way to write `format!("{:x}", script)`.
     /// For better performance you should generally prefer displaying the script but if `String` is
     /// required (this is common in tests) this method is can be used.
-    pub fn to_hex_string(&self) -> String {
-        self.as_bytes().to_lower_hex_string()
-    }
+    pub fn to_hex_string(&self) -> String { self.as_bytes().to_lower_hex_string() }
 
     /// Returns the first opcode of the script (if there is any).
     pub fn first_opcode(&self) -> Option<opcodes::All> {
@@ -486,31 +463,21 @@ impl Iterator for Bytes<'_> {
     type Item = u8;
 
     #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
+    fn next(&mut self) -> Option<Self::Item> { self.0.next() }
 
     #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.0.size_hint()
-    }
+    fn size_hint(&self) -> (usize, Option<usize>) { self.0.size_hint() }
 
     #[inline]
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.0.nth(n)
-    }
+    fn nth(&mut self, n: usize) -> Option<Self::Item> { self.0.nth(n) }
 }
 
 impl DoubleEndedIterator for Bytes<'_> {
     #[inline]
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.next_back()
-    }
+    fn next_back(&mut self) -> Option<Self::Item> { self.0.next_back() }
 
     #[inline]
-    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        self.0.nth_back(n)
-    }
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> { self.0.nth_back(n) }
 }
 
 impl ExactSizeIterator for Bytes<'_> {}

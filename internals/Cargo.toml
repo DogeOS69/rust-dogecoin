@@ -12,6 +12,9 @@ readme = "README.md"
 edition = "2018"
 exclude = ["tests", "contrib"]
 
+[lints]
+workspace = true
+
 [features]
 default = []
 std = ["alloc"]

@@ -142,9 +142,7 @@ impl ChildNumber {
     /// Returns `true` if the child number is a [`Normal`] value.
     ///
     /// [`Normal`]: #variant.Normal
-    pub fn is_normal(&self) -> bool {
-        !self.is_hardened()
-    }
+    pub fn is_normal(&self) -> bool { !self.is_hardened() }
 
     /// Returns `true` if the child number is a [`Hardened`] value.
     ///
@@ -255,54 +253,38 @@ where
     type Output = <Vec<ChildNumber> as Index<I>>::Output;
 
     #[inline]
-    fn index(&self, index: I) -> &Self::Output {
-        &self.0[index]
-    }
+    fn index(&self, index: I) -> &Self::Output { &self.0[index] }
 }
 
 impl Default for DerivationPath {
-    fn default() -> DerivationPath {
-        DerivationPath::master()
-    }
+    fn default() -> DerivationPath { DerivationPath::master() }
 }
 
 impl<T> IntoDerivationPath for T
 where
     T: Into<DerivationPath>,
 {
-    fn into_derivation_path(self) -> Result<DerivationPath, Error> {
-        Ok(self.into())
-    }
+    fn into_derivation_path(self) -> Result<DerivationPath, Error> { Ok(self.into()) }
 }
 
 impl IntoDerivationPath for String {
-    fn into_derivation_path(self) -> Result<DerivationPath, Error> {
-        self.parse()
-    }
+    fn into_derivation_path(self) -> Result<DerivationPath, Error> { self.parse() }
 }
 
 impl<'a> IntoDerivationPath for &'a str {
-    fn into_derivation_path(self) -> Result<DerivationPath, Error> {
-        self.parse()
-    }
+    fn into_derivation_path(self) -> Result<DerivationPath, Error> { self.parse() }
 }
 
 impl From<Vec<ChildNumber>> for DerivationPath {
-    fn from(numbers: Vec<ChildNumber>) -> Self {
-        DerivationPath(numbers)
-    }
+    fn from(numbers: Vec<ChildNumber>) -> Self { DerivationPath(numbers) }
 }
 
 impl From<DerivationPath> for Vec<ChildNumber> {
-    fn from(path: DerivationPath) -> Self {
-        path.0
-    }
+    fn from(path: DerivationPath) -> Self { path.0 }
 }
 
 impl<'a> From<&'a [ChildNumber]> for DerivationPath {
-    fn from(numbers: &'a [ChildNumber]) -> Self {
-        DerivationPath(numbers.to_vec())
-    }
+    fn from(numbers: &'a [ChildNumber]) -> Self { DerivationPath(numbers.to_vec()) }
 }
 
 impl core::iter::FromIterator<ChildNumber> for DerivationPath {
@@ -317,15 +299,11 @@ impl core::iter::FromIterator<ChildNumber> for DerivationPath {
 impl<'a> core::iter::IntoIterator for &'a DerivationPath {
     type Item = &'a ChildNumber;
     type IntoIter = slice::Iter<'a, ChildNumber>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
+    fn into_iter(self) -> Self::IntoIter { self.0.iter() }
 }
 
 impl AsRef<[ChildNumber]> for DerivationPath {
-    fn as_ref(&self) -> &[ChildNumber] {
-        &self.0
-    }
+    fn as_ref(&self) -> &[ChildNumber] { &self.0 }
 }
 
 impl FromStr for DerivationPath {
@@ -371,25 +349,17 @@ impl<'a> Iterator for DerivationPathIterator<'a> {
 
 impl DerivationPath {
     /// Returns length of the derivation path
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
+    pub fn len(&self) -> usize { self.0.len() }
 
     /// Returns `true` if the derivation path is empty
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
+    pub fn is_empty(&self) -> bool { self.0.is_empty() }
 
     /// Returns derivation path for a master key (i.e. empty derivation path)
-    pub fn master() -> DerivationPath {
-        DerivationPath(vec![])
-    }
+    pub fn master() -> DerivationPath { DerivationPath(vec![]) }
 
     /// Returns whether derivation path represents master key (i.e. it's length
     /// is empty). True for `m` path.
-    pub fn is_master(&self) -> bool {
-        self.0.is_empty()
-    }
+    pub fn is_master(&self) -> bool { self.0.is_empty() }
 
     /// Create a new [DerivationPath] that is a child of this one.
     pub fn child(&self, cn: ChildNumber) -> DerivationPath {
@@ -407,17 +377,17 @@ impl DerivationPath {
 
     /// Get an [Iterator] over the children of this [DerivationPath]
     /// starting with the given [ChildNumber].
-    pub fn children_from(&self, cn: ChildNumber) -> DerivationPathIterator {
+    pub fn children_from(&self, cn: ChildNumber) -> DerivationPathIterator<'_> {
         DerivationPathIterator::start_from(self, cn)
     }
 
     /// Get an [Iterator] over the unhardened children of this [DerivationPath].
-    pub fn normal_children(&self) -> DerivationPathIterator {
+    pub fn normal_children(&self) -> DerivationPathIterator<'_> {
         DerivationPathIterator::start_from(self, ChildNumber::Normal { index: 0 })
     }
 
     /// Get an [Iterator] over the hardened children of this [DerivationPath].
-    pub fn hardened_children(&self) -> DerivationPathIterator {
+    pub fn hardened_children(&self) -> DerivationPathIterator<'_> {
         DerivationPathIterator::start_from(self, ChildNumber::Hardened { index: 0 })
     }
 
@@ -456,9 +426,7 @@ impl fmt::Display for DerivationPath {
 }
 
 impl fmt::Debug for DerivationPath {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self, f)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(&self, f) }
 }
 
 /// Full information on the used extended public key: fingerprint of the
@@ -494,9 +462,8 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::CannotDeriveFromHardenedKey => {
-                f.write_str("cannot derive hardened key from public key")
-            }
+            Error::CannotDeriveFromHardenedKey =>
+                f.write_str("cannot derive hardened key from public key"),
             Error::Secp256k1(ref e) => write_err!(f, "secp256k1 error"; e),
             Error::InvalidChildNumber(ref n) => {
                 write!(f, "child number {} is invalid (not within [0, 2^31 - 1])", n)
@@ -552,15 +519,11 @@ impl From<key::Error> for Error {
 }
 
 impl From<secp256k1::Error> for Error {
-    fn from(e: secp256k1::Error) -> Error {
-        Error::Secp256k1(e)
-    }
+    fn from(e: secp256k1::Error) -> Error { Error::Secp256k1(e) }
 }
 
 impl From<base58::Error> for Error {
-    fn from(err: base58::Error) -> Self {
-        Error::Base58(err)
-    }
+    fn from(err: base58::Error) -> Self { Error::Base58(err) }
 }
 
 impl ExtendedPrivKey {
@@ -721,15 +684,11 @@ impl ExtendedPubKey {
     }
 
     /// Constructs ECDSA compressed public key matching internal public key representation.
-    pub fn to_pub(self) -> PublicKey {
-        PublicKey { compressed: true, inner: self.public_key }
-    }
+    pub fn to_pub(self) -> PublicKey { PublicKey { compressed: true, inner: self.public_key } }
 
     /// Constructs BIP340 x-only public key for BIP-340 signatures and Taproot use matching
     /// the internal public key representation.
-    pub fn to_x_only_pub(self) -> XOnlyPublicKey {
-        XOnlyPublicKey::from(self.public_key)
-    }
+    pub fn to_x_only_pub(self) -> XOnlyPublicKey { XOnlyPublicKey::from(self.public_key) }
 
     /// Attempts to derive an extended public key from a path.
     ///
@@ -886,15 +845,11 @@ impl FromStr for ExtendedPubKey {
 }
 
 impl From<ExtendedPubKey> for XpubIdentifier {
-    fn from(key: ExtendedPubKey) -> XpubIdentifier {
-        key.identifier()
-    }
+    fn from(key: ExtendedPubKey) -> XpubIdentifier { key.identifier() }
 }
 
 impl From<&ExtendedPubKey> for XpubIdentifier {
-    fn from(key: &ExtendedPubKey) -> XpubIdentifier {
-        key.identifier()
-    }
+    fn from(key: &ExtendedPubKey) -> XpubIdentifier { key.identifier() }
 }
 
 #[cfg(test)]

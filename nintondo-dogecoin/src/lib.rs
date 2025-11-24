@@ -65,11 +65,12 @@ pub extern crate bitcoin_hashes as hashes;
 #[cfg_attr(docsrs, doc(cfg(feature = "bitcoinconsensus")))]
 pub extern crate bitcoinconsensus;
 pub extern crate hex;
+#[cfg(feature = "secp256k1")]
 pub extern crate secp256k1;
 
 #[cfg(feature = "serde")]
 #[macro_use]
-extern crate actual_serde as serde;
+extern crate serde;
 
 #[cfg(test)]
 #[macro_use]
@@ -86,19 +87,23 @@ pub mod amount;
 pub mod base58;
 pub mod bip152;
 pub mod bip158;
+#[cfg(feature = "secp256k1")]
 pub mod bip32;
 pub mod blockdata;
 pub mod consensus;
 // Private until we either make this a crate or flatten it - still to be decided.
+#[cfg(feature = "secp256k1")]
 pub(crate) mod crypto;
 pub mod error;
 pub mod hash_types;
 pub mod merkle_tree;
 pub mod policy;
 pub mod pow;
+#[cfg(feature = "secp256k1")]
 pub mod psbt;
 pub mod sign_message;
 pub mod string;
+#[cfg(feature = "secp256k1")]
 pub mod taproot;
 pub mod util;
 
@@ -126,7 +131,9 @@ pub use crate::blockdata::weight::Weight;
 pub use crate::blockdata::witness::{self, Witness};
 pub use crate::blockdata::{constants, opcodes};
 pub use crate::consensus::encode::VarInt;
+#[cfg(feature = "secp256k1")]
 pub use crate::crypto::key::{self, PrivateKey, PublicKey};
+#[cfg(feature = "secp256k1")]
 pub use crate::crypto::{ecdsa, sighash};
 pub use crate::error::Error;
 pub use crate::hash_types::{
@@ -144,47 +151,36 @@ mod io_extras {
     }
 
     /// Creates an instance of a writer which will successfully consume all data.
-    pub const fn sink() -> Sink {
-        Sink { _priv: () }
-    }
+    pub const fn sink() -> Sink { Sink { _priv: () } }
 
     impl core2::io::Write for Sink {
         #[inline]
-        fn write(&mut self, buf: &[u8]) -> core2::io::Result<usize> {
-            Ok(buf.len())
-        }
+        fn write(&mut self, buf: &[u8]) -> core2::io::Result<usize> { Ok(buf.len()) }
 
         #[inline]
-        fn flush(&mut self) -> core2::io::Result<()> {
-            Ok(())
-        }
+        fn flush(&mut self) -> core2::io::Result<()> { Ok(()) }
     }
 }
 
-#[rustfmt::skip]
+#[allow(unused)]
 mod prelude {
     #[cfg(all(not(feature = "std"), not(test)))]
-    pub use alloc::{string::{String, ToString}, vec::Vec, boxed::Box, borrow::{Borrow, Cow, ToOwned}, slice, rc};
-
-    #[cfg(all(not(feature = "std"), not(test), any(not(rust_v_1_60), target_has_atomic = "ptr")))]
-    pub use alloc::sync;
-
-    #[cfg(any(feature = "std", test))]
-    pub use std::{string::{String, ToString}, vec::Vec, boxed::Box, borrow::{Borrow, Cow, ToOwned}, slice, rc, sync};
-
-    #[cfg(all(not(feature = "std"), not(test)))]
-    pub use alloc::collections::{BTreeMap, BTreeSet, btree_map, BinaryHeap};
-
-    #[cfg(any(feature = "std", test))]
-    pub use std::collections::{BTreeMap, BTreeSet, btree_map, BinaryHeap};
-
+    use alloc as std;
+    pub use std::borrow::{Borrow, Cow, ToOwned};
+    pub use std::boxed::Box;
+    pub use std::collections::{btree_map, BTreeMap, BTreeSet, BinaryHeap};
     #[cfg(feature = "std")]
     pub use std::io::sink;
+    pub use std::string::{String, ToString};
+    #[cfg(target_has_atomic = "ptr")]
+    pub use std::sync;
+    pub use std::vec::Vec;
+    pub use std::{rc, slice};
+
+    pub use bitcoin_internals::hex::display::DisplayHex;
 
     #[cfg(not(feature = "std"))]
     pub use crate::io_extras::sink;
-
-    pub use bitcoin_internals::hex::display::DisplayHex;
 }
 
 #[cfg(bench)]
@@ -200,21 +196,13 @@ mod bench {
     pub struct EmptyWrite;
 
     impl Write for EmptyWrite {
-        fn write(&mut self, buf: &[u8]) -> Result<usize> {
-            Ok(buf.len())
-        }
+        fn write(&mut self, buf: &[u8]) -> Result<usize> { Ok(buf.len()) }
         fn write_vectored(&mut self, bufs: &[IoSlice]) -> Result<usize> {
             Ok(bufs.iter().map(|s| s.len()).sum())
         }
-        fn flush(&mut self) -> Result<()> {
-            Ok(())
-        }
+        fn flush(&mut self) -> Result<()> { Ok(()) }
 
-        fn write_all(&mut self, _: &[u8]) -> Result<()> {
-            Ok(())
-        }
-        fn write_fmt(&mut self, _: Arguments) -> Result<()> {
-            Ok(())
-        }
+        fn write_all(&mut self, _: &[u8]) -> Result<()> { Ok(()) }
+        fn write_fmt(&mut self, _: Arguments) -> Result<()> { Ok(()) }
     }
 }

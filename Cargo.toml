@@ -1,5 +1,8 @@
 [workspace]
 members = ["nintondo-dogecoin", "hashes", "internals"]
 
+[workspace.lints.rust]
+unexpected-cfgs = "allow"
+
 [patch.crates-io.bitcoin_hashes]
 path = "hashes"

@@ -69,9 +69,7 @@ pub struct PrefilledTransaction {
 }
 
 impl convert::AsRef<Transaction> for PrefilledTransaction {
-    fn as_ref(&self) -> &Transaction {
-        &self.tx
-    }
+    fn as_ref(&self) -> &Transaction { &self.tx }
 }
 
 impl Encodable for PrefilledTransaction {
