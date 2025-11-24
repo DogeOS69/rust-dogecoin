@@ -37,9 +37,7 @@ static BASE58_DIGITS: [Option<u8>; 128] = [
 
 /// Decodes a base58-encoded string into a byte vector.
 #[deprecated(since = "0.30.0", note = "Use base58::decode() instead")]
-pub fn from(data: &str) -> Result<Vec<u8>, Error> {
-    decode(data)
-}
+pub fn from(data: &str) -> Result<Vec<u8>, Error> { decode(data) }
 
 /// Decodes a base58-encoded string into a byte vector.
 pub fn decode(data: &str) -> Result<Vec<u8>, Error> {
@@ -74,9 +72,7 @@ pub fn decode(data: &str) -> Result<Vec<u8>, Error> {
 
 /// Decodes a base58check-encoded string into a byte vector verifying the checksum.
 #[deprecated(since = "0.30.0", note = "Use base58::decode_check() instead")]
-pub fn from_check(data: &str) -> Result<Vec<u8>, Error> {
-    decode_check(data)
-}
+pub fn from_check(data: &str) -> Result<Vec<u8>, Error> { decode_check(data) }
 
 /// Decodes a base58check-encoded string into a byte vector verifying the checksum.
 pub fn decode_check(data: &str) -> Result<Vec<u8>, Error> {
@@ -103,22 +99,16 @@ pub fn decode_check(data: &str) -> Result<Vec<u8>, Error> {
 
 /// Encodes `data` as a base58 string.
 #[deprecated(since = "0.30.0", note = "Use base58::encode() instead")]
-pub fn encode_slice(data: &[u8]) -> String {
-    encode(data)
-}
+pub fn encode_slice(data: &[u8]) -> String { encode(data) }
 
 /// Encodes `data` as a base58 string (see also `base58::encode_check()`).
-pub fn encode(data: &[u8]) -> String {
-    encode_iter(data.iter().cloned())
-}
+pub fn encode(data: &[u8]) -> String { encode_iter(data.iter().cloned()) }
 
 /// Encodes `data` as a base58 string including the checksum.
 ///
 /// The checksum is the first four bytes of the sha256d of the data, concatenated onto the end.
 #[deprecated(since = "0.30.0", note = "Use base58::encode_check() instead")]
-pub fn check_encode_slice(data: &[u8]) -> String {
-    encode_check(data)
-}
+pub fn check_encode_slice(data: &[u8]) -> String { encode_check(data) }
 
 /// Encodes `data` as a base58 string including the checksum.
 ///
@@ -204,9 +194,7 @@ struct SmallVec<T> {
 }
 
 impl<T: Default + Copy> SmallVec<T> {
-    fn new() -> SmallVec<T> {
-        SmallVec { len: 0, stack: [T::default(); 100], heap: Vec::new() }
-    }
+    fn new() -> SmallVec<T> { SmallVec { len: 0, stack: [T::default(); 100], heap: Vec::new() } }
 
     fn push(&mut self, val: T) {
         if self.len < 100 {
@@ -217,12 +205,12 @@ impl<T: Default + Copy> SmallVec<T> {
         }
     }
 
-    fn iter(&self) -> iter::Chain<slice::Iter<T>, slice::Iter<T>> {
+    fn iter(&self) -> iter::Chain<slice::Iter<'_, T>, slice::Iter<'_, T>> {
         // If len<100 then we just append an empty vec
         self.stack[0..self.len].iter().chain(self.heap.iter())
     }
 
-    fn iter_mut(&mut self) -> iter::Chain<slice::IterMut<T>, slice::IterMut<T>> {
+    fn iter_mut(&mut self) -> iter::Chain<slice::IterMut<'_, T>, slice::IterMut<'_, T>> {
         // If len<100 then we just append an empty vec
         self.stack[0..self.len].iter_mut().chain(self.heap.iter_mut())
     }

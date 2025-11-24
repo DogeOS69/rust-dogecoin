@@ -92,9 +92,7 @@ impl std::error::Error for Error {
 }
 
 impl From<io::Error> for Error {
-    fn from(io: io::Error) -> Self {
-        Error::Io(io)
-    }
+    fn from(io: io::Error) -> Self { Error::Io(io) }
 }
 
 /// A block filter, as described by BIP 158.
@@ -116,9 +114,7 @@ impl FilterHash {
 
 impl BlockFilter {
     /// Creates a new filter from pre-computed data.
-    pub fn new(content: &[u8]) -> BlockFilter {
-        BlockFilter { content: content.to_vec() }
-    }
+    pub fn new(content: &[u8]) -> BlockFilter { BlockFilter { content: content.to_vec() } }
 
     /// Computes a SCRIPT_FILTER that contains spent and output scripts.
     pub fn new_script_filter<M, S>(block: &Block, script_for_coin: M) -> Result<BlockFilter, Error>
@@ -215,14 +211,10 @@ impl<'a, W: io::Write> BlockFilterWriter<'a, W> {
     }
 
     /// Adds an arbitrary element to filter.
-    pub fn add_element(&mut self, data: &[u8]) {
-        self.writer.add_element(data);
-    }
+    pub fn add_element(&mut self, data: &[u8]) { self.writer.add_element(data); }
 
     /// Writes the block filter.
-    pub fn finish(&mut self) -> Result<usize, io::Error> {
-        self.writer.finish()
-    }
+    pub fn finish(&mut self) -> Result<usize, io::Error> { self.writer.finish() }
 }
 
 /// Reads and interprets a block filter.
@@ -303,14 +295,13 @@ impl GcsFilterReader {
             loop {
                 match data.cmp(&p) {
                     Ordering::Equal => return Ok(true),
-                    Ordering::Less => {
+                    Ordering::Less =>
                         if remaining > 0 {
                             data += self.filter.golomb_rice_decode(&mut reader)?;
                             remaining -= 1;
                         } else {
                             return Ok(false);
-                        }
-                    }
+                        },
                     Ordering::Greater => break,
                 }
             }
@@ -350,14 +341,13 @@ impl GcsFilterReader {
             loop {
                 match data.cmp(&p) {
                     Ordering::Equal => break,
-                    Ordering::Less => {
+                    Ordering::Less =>
                         if remaining > 0 {
                             data += self.filter.golomb_rice_decode(&mut reader)?;
                             remaining -= 1;
                         } else {
                             return Ok(false);
-                        }
-                    }
+                        },
                     Ordering::Greater => return Ok(false),
                 }
             }
@@ -367,9 +357,7 @@ impl GcsFilterReader {
 }
 
 /// Fast reduction of hash to [0, nm) range.
-fn map_to_range(hash: u64, nm: u64) -> u64 {
-    ((hash as u128 * nm as u128) >> 64) as u64
-}
+fn map_to_range(hash: u64, nm: u64) -> u64 { ((hash as u128 * nm as u128) >> 64) as u64 }
 
 /// Golomb-Rice encoded filter writer.
 pub struct GcsFilterWriter<'a, W> {
@@ -428,9 +416,7 @@ struct GcsFilter {
 
 impl GcsFilter {
     /// Creates a new [`GcsFilter`].
-    fn new(k0: u64, k1: u64, p: u8) -> GcsFilter {
-        GcsFilter { k0, k1, p }
-    }
+    fn new(k0: u64, k1: u64, p: u8) -> GcsFilter { GcsFilter { k0, k1, p } }
 
     /// Golomb-Rice encodes a number `n` to a bit stream (parameter 2^k).
     fn golomb_rice_encode<W>(

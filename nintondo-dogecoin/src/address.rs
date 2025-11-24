@@ -34,6 +34,7 @@ use core::str::FromStr;
 
 use bech32;
 use bitcoin_internals::write_err;
+#[cfg(feature = "secp256k1")]
 use secp256k1::{Secp256k1, Verification, XOnlyPublicKey};
 
 use crate::base58;
@@ -46,12 +47,16 @@ use crate::blockdata::opcodes::all::*;
 use crate::blockdata::script::{
     self, Instruction, PushBytes, PushBytesBuf, PushBytesErrorReport, Script, ScriptBuf,
 };
+#[cfg(feature = "secp256k1")]
 use crate::crypto::key::{PublicKey, TapTweak, TweakedPublicKey, UntweakedPublicKey};
 use crate::error::ParseIntError;
 use crate::hash_types::{PubkeyHash, ScriptHash};
-use crate::hashes::{sha256, Hash, HashEngine};
+use crate::hashes::Hash;
+#[cfg(feature = "secp256k1")]
+use crate::hashes::HashEngine;
 use crate::network::constants::Network;
 use crate::prelude::*;
+#[cfg(feature = "secp256k1")]
 use crate::taproot::TapNodeHash;
 
 /// Address error.
@@ -152,16 +157,12 @@ impl std::error::Error for Error {
 
 #[doc(hidden)]
 impl From<base58::Error> for Error {
-    fn from(e: base58::Error) -> Error {
-        Error::Base58(e)
-    }
+    fn from(e: base58::Error) -> Error { Error::Base58(e) }
 }
 
 #[doc(hidden)]
 impl From<bech32::Error> for Error {
-    fn from(e: bech32::Error) -> Error {
-        Error::Bech32(e)
-    }
+    fn from(e: bech32::Error) -> Error { Error::Bech32(e) }
 }
 
 /// The different types of addresses.
@@ -255,9 +256,7 @@ pub enum WitnessVersion {
 /// Prints [`WitnessVersion`] number (from 0 to 16) as integer, without
 /// any prefix or suffix.
 impl fmt::Display for WitnessVersion {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", *self as u8)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", *self as u8) }
 }
 
 impl FromStr for WitnessVersion {
@@ -275,9 +274,7 @@ impl WitnessVersion {
     /// NB: this is not the same as an integer representation of the opcode signifying witness
     /// version in bitcoin script. Thus, there is no function to directly convert witness version
     /// into a byte since the conversion requires context (bitcoin script or just a version number).
-    pub fn to_num(self) -> u8 {
-        self as u8
-    }
+    pub fn to_num(self) -> u8 { self as u8 }
 
     /// Determines the checksum variant. See BIP-0350 for specification.
     pub fn bech32_variant(&self) -> bech32::Variant {
@@ -300,9 +297,7 @@ impl TryFrom<bech32::u5> for WitnessVersion {
     /// # Errors
     /// If the integer does not correspond to any witness version, errors with
     /// [`Error::InvalidWitnessVersion`].
-    fn try_from(value: bech32::u5) -> Result<Self, Self::Error> {
-        Self::try_from(value.to_u8())
-    }
+    fn try_from(value: bech32::u5) -> Result<Self, Self::Error> { Self::try_from(value.to_u8()) }
 }
 
 impl TryFrom<u8> for WitnessVersion {
@@ -356,9 +351,8 @@ impl TryFrom<opcodes::All> for WitnessVersion {
     fn try_from(opcode: opcodes::All) -> Result<Self, Self::Error> {
         match opcode.to_u8() {
             0 => Ok(WitnessVersion::V0),
-            version if version >= OP_PUSHNUM_1.to_u8() && version <= OP_PUSHNUM_16.to_u8() => {
-                WitnessVersion::try_from(version - OP_PUSHNUM_1.to_u8() + 1)
-            }
+            version if version >= OP_PUSHNUM_1.to_u8() && version <= OP_PUSHNUM_16.to_u8() =>
+                WitnessVersion::try_from(version - OP_PUSHNUM_1.to_u8() + 1),
             _ => Err(Error::MalformedWitnessVersion),
         }
     }
@@ -445,14 +439,10 @@ impl WitnessProgram {
     }
 
     /// Returns the witness program version.
-    pub fn version(&self) -> WitnessVersion {
-        self.version
-    }
+    pub fn version(&self) -> WitnessVersion { self.version }
 
     /// Returns the witness program.
-    pub fn program(&self) -> &PushBytes {
-        &self.program
-    }
+    pub fn program(&self) -> &PushBytes { &self.program }
 }
 
 impl Payload {
@@ -490,24 +480,20 @@ impl Payload {
     /// This function doesn't make any allocations.
     pub fn matches_script_pubkey(&self, script: &Script) -> bool {
         match *self {
-            Payload::PubkeyHash(ref hash) if script.is_p2pkh() => {
-                &script.as_bytes()[3..23] == <PubkeyHash as AsRef<[u8; 20]>>::as_ref(hash)
-            }
-            Payload::ScriptHash(ref hash) if script.is_p2sh() => {
-                &script.as_bytes()[2..22] == <ScriptHash as AsRef<[u8; 20]>>::as_ref(hash)
-            }
-            Payload::WitnessProgram(ref prog) if script.is_witness_program() => {
-                &script.as_bytes()[2..] == prog.program.as_bytes()
-            }
+            Payload::PubkeyHash(ref hash) if script.is_p2pkh() =>
+                &script.as_bytes()[3..23] == <PubkeyHash as AsRef<[u8; 20]>>::as_ref(hash),
+            Payload::ScriptHash(ref hash) if script.is_p2sh() =>
+                &script.as_bytes()[2..22] == <ScriptHash as AsRef<[u8; 20]>>::as_ref(hash),
+            Payload::WitnessProgram(ref prog) if script.is_witness_program() =>
+                &script.as_bytes()[2..] == prog.program.as_bytes(),
             Payload::PubkeyHash(_) | Payload::ScriptHash(_) | Payload::WitnessProgram(_) => false,
         }
     }
 
     /// Creates a pay to (compressed) public key hash payload from a public key
     #[inline]
-    pub fn p2pkh(pk: &PublicKey) -> Payload {
-        Payload::PubkeyHash(pk.pubkey_hash())
-    }
+    #[cfg(feature = "secp256k1")]
+    pub fn p2pkh(pk: &PublicKey) -> Payload { Payload::PubkeyHash(pk.pubkey_hash()) }
 
     /// Creates a pay to script hash P2SH payload from a script
     #[inline]
@@ -519,6 +505,7 @@ impl Payload {
     }
 
     /// Create a witness pay to public key payload from a public key
+    #[cfg(feature = "secp256k1")]
     pub fn p2wpkh(pk: &PublicKey) -> Result<Payload, Error> {
         let prog = WitnessProgram::new(
             WitnessVersion::V0,
@@ -528,6 +515,7 @@ impl Payload {
     }
 
     /// Create a pay to script payload that embeds a witness pay to public key
+    #[cfg(feature = "secp256k1")]
     pub fn p2shwpkh(pk: &PublicKey) -> Result<Payload, Error> {
         let builder = script::Builder::new()
             .push_int(0)
@@ -551,6 +539,7 @@ impl Payload {
     }
 
     /// Create a pay to taproot payload from untweaked key
+    #[cfg(feature = "secp256k1")]
     pub fn p2tr<C: Verification>(
         secp: &Secp256k1<C>,
         internal_key: UntweakedPublicKey,
@@ -565,6 +554,7 @@ impl Payload {
     /// Create a pay to taproot payload from a pre-tweaked output key.
     ///
     /// This method is not recommended for use and [Payload::p2tr()] should be used where possible.
+    #[cfg(feature = "secp256k1")]
     pub fn p2tr_tweaked(output_key: TweakedPublicKey) -> Payload {
         let prog = WitnessProgram::new(WitnessVersion::V1, output_key.to_inner().serialize())
             .expect("taproot output key has len 32 <= 40");
@@ -573,6 +563,7 @@ impl Payload {
 
     /// Returns a byte slice of the inner program of the payload. If the payload
     /// is a script hash or pubkey hash, a reference to the hash is returned.
+    #[cfg(feature = "secp256k1")]
     fn inner_prog_as_bytes(&self) -> &[u8] {
         match self {
             Payload::ScriptHash(hash) => hash.as_ref(),
@@ -764,9 +755,7 @@ struct DisplayUnchecked<'a>(&'a Address<NetworkUnchecked>);
 
 #[cfg(feature = "serde")]
 impl fmt::Display for DisplayUnchecked<'_> {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt_internal(fmt)
-    }
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result { self.0.fmt_internal(fmt) }
 }
 
 #[cfg(feature = "serde")]
@@ -853,6 +842,7 @@ impl Address {
     /// Creates a pay to (compressed) public key hash address from a public key.
     ///
     /// This is the preferred non-witness type address.
+    #[cfg(feature = "secp256k1")]
     #[inline]
     pub fn p2pkh(pk: &PublicKey, network: Network) -> Address {
         Address::new(network, Payload::p2pkh(pk))
@@ -873,6 +863,7 @@ impl Address {
     ///
     /// # Errors
     /// Will only return an error if an uncompressed public key is provided.
+    #[cfg(feature = "secp256k1")]
     pub fn p2wpkh(pk: &PublicKey, network: Network) -> Result<Address, Error> {
         Ok(Address::new(network, Payload::p2wpkh(pk)?))
     }
@@ -883,6 +874,7 @@ impl Address {
     ///
     /// # Errors
     /// Will only return an Error if an uncompressed public key is provided.
+    #[cfg(feature = "secp256k1")]
     pub fn p2shwpkh(pk: &PublicKey, network: Network) -> Result<Address, Error> {
         Ok(Address::new(network, Payload::p2shwpkh(pk)?))
     }
@@ -900,6 +892,7 @@ impl Address {
     }
 
     /// Creates a pay to taproot address from an untweaked key.
+    #[cfg(feature = "secp256k1")]
     pub fn p2tr<C: Verification>(
         secp: &Secp256k1<C>,
         internal_key: UntweakedPublicKey,
@@ -912,6 +905,7 @@ impl Address {
     /// Creates a pay to taproot address from a pre-tweaked output key.
     ///
     /// This method is not recommended for use, [`Address::p2tr()`] should be used where possible.
+    #[cfg(feature = "secp256k1")]
     pub fn p2tr_tweaked(output_key: TweakedPublicKey, network: Network) -> Address {
         Address::new(network, Payload::p2tr_tweaked(output_key))
     }
@@ -921,9 +915,7 @@ impl Address {
     /// # Returns
     /// None if unknown, non-standard or related to the future witness version.
     #[inline]
-    pub fn address_type(&self) -> Option<AddressType> {
-        self.address_type_internal()
-    }
+    pub fn address_type(&self) -> Option<AddressType> { self.address_type_internal() }
 
     /// Checks whether or not the address is following Dogecoin standardness rules when
     /// *spending* from this address. *NOT* to be called by senders.
@@ -938,18 +930,14 @@ impl Address {
     /// considered non-standard.
     /// </details>
     ///
-    pub fn is_spend_standard(&self) -> bool {
-        self.address_type().is_some()
-    }
+    pub fn is_spend_standard(&self) -> bool { self.address_type().is_some() }
 
     /// Checks whether or not the address is following Dogecoin standardness rules.
     ///
     /// SegWit addresses with unassigned witness versions or non-standard program sizes are
     /// considered non-standard.
     #[deprecated(since = "0.30.0", note = "Use Address::is_spend_standard instead")]
-    pub fn is_standard(&self) -> bool {
-        self.address_type().is_some()
-    }
+    pub fn is_standard(&self) -> bool { self.address_type().is_some() }
 
     /// Constructs an [`Address`] from an output script (`scriptPubkey`).
     pub fn from_script(script: &Script, network: Network) -> Result<Address, Error> {
@@ -957,9 +945,7 @@ impl Address {
     }
 
     /// Generates a script pubkey spending to this address.
-    pub fn script_pubkey(&self) -> ScriptBuf {
-        self.payload.script_pubkey()
-    }
+    pub fn script_pubkey(&self) -> ScriptBuf { self.payload.script_pubkey() }
 
     /// Creates a URI string *bitcoin:address* optimized to be encoded in QR codes.
     ///
@@ -1001,6 +987,7 @@ impl Address {
     /// This is determined by directly comparing the address payload with either the
     /// hash of the given public key or the segwit redeem hash generated from the
     /// given key. For taproot addresses, the supplied key is assumed to be tweaked
+    #[cfg(feature = "secp256k1")]
     pub fn is_related_to_pubkey(&self, pubkey: &PublicKey) -> bool {
         let pubkey_hash = pubkey.pubkey_hash();
         let payload = self.payload.inner_prog_as_bytes();
@@ -1015,6 +1002,7 @@ impl Address {
     ///
     /// This will only work for Taproot addresses. The Public Key is
     /// assumed to have already been tweaked.
+    #[cfg(feature = "secp256k1")]
     pub fn is_related_to_xonly_pubkey(&self, xonly_pubkey: &XOnlyPublicKey) -> bool {
         let payload = self.payload.inner_prog_as_bytes();
         payload == xonly_pubkey.serialize()
@@ -1084,23 +1072,17 @@ impl Address<NetworkUnchecked> {
     /// For details about this mechanism, see section [*Parsing addresses*](Address#parsing-addresses)
     /// on [`Address`].
     #[inline]
-    pub fn assume_checked(self) -> Address {
-        Address::new(self.network, self.payload)
-    }
+    pub fn assume_checked(self) -> Address { Address::new(self.network, self.payload) }
 }
 
 impl From<Address> for script::ScriptBuf {
-    fn from(a: Address) -> Self {
-        a.script_pubkey()
-    }
+    fn from(a: Address) -> Self { a.script_pubkey() }
 }
 
 // Alternate formatting `{:#}` is used to return uppercase version of bech32 addresses which should
 // be used in QR codes, see [`Address::to_qr_uri`].
 impl fmt::Display for Address {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        self.fmt_internal(fmt)
-    }
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result { self.fmt_internal(fmt) }
 }
 
 impl<V: NetworkValidation> fmt::Debug for Address<V> {
@@ -1193,12 +1175,10 @@ impl FromStr for Address<NetworkUnchecked> {
                 Network::Dogecoin,
                 Payload::ScriptHash(ScriptHash::from_slice(&data[1..]).unwrap()),
             ),
-            PUBKEY_ADDRESS_PREFIX_TEST => {
-                (Network::Testnet, Payload::PubkeyHash(PubkeyHash::from_slice(&data[1..]).unwrap()))
-            }
-            SCRIPT_ADDRESS_PREFIX_TEST => {
-                (Network::Testnet, Payload::ScriptHash(ScriptHash::from_slice(&data[1..]).unwrap()))
-            }
+            PUBKEY_ADDRESS_PREFIX_TEST =>
+                (Network::Testnet, Payload::PubkeyHash(PubkeyHash::from_slice(&data[1..]).unwrap())),
+            SCRIPT_ADDRESS_PREFIX_TEST =>
+                (Network::Testnet, Payload::ScriptHash(ScriptHash::from_slice(&data[1..]).unwrap())),
             x => return Err(Error::Base58(base58::Error::InvalidAddressVersion(x))),
         };
 
@@ -1207,7 +1187,9 @@ impl FromStr for Address<NetworkUnchecked> {
 }
 
 /// Convert a byte array of a pubkey hash into a segwit redeem hash
+#[cfg(feature = "secp256k1")]
 fn segwit_redeem_hash(pubkey_hash: &PubkeyHash) -> crate::hashes::hash160::Hash {
+    use crate::hashes::sha256;
     let mut sha_engine = sha256::Hash::engine();
     sha_engine.input(&[0, 20]);
     sha_engine.input(pubkey_hash.as_ref());
@@ -1219,9 +1201,11 @@ mod tests {
     use core::str::FromStr;
 
     use hex_lit::hex;
+    #[cfg(feature = "secp256k1")]
     use secp256k1::XOnlyPublicKey;
 
     use super::*;
+    #[cfg(feature = "secp256k1")]
     use crate::crypto::key::PublicKey;
     use crate::network::constants::Network::{Dogecoin, Testnet};
 
@@ -1265,6 +1249,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_p2pkh_from_key() {
         let key = "048d5141948c1702e8c95f438815794b87f706a8d4cd2bffad1dc1570971032c9b6042a0431ded2478b5c9cf2d81c124a5e57347a3c63ef0e7716cf54d613ba183".parse::<PublicKey>().unwrap();
         let addr = Address::p2pkh(&key, Dogecoin);
@@ -1311,6 +1296,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_p2wpkh() {
         // stolen from Dogecoin transaction: b3c8c2b6cfc335abbcb2c7823a8453f55d64b2b5125a9a61e8737230cdb8ce20
         let mut key = "033bc8c83c52df5712229a2f72206d90192366c36428cb0c12b6af98324d97bfbc"
@@ -1340,6 +1326,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_p2shwpkh() {
         // stolen from Dogecoin transaction: ad3fd9c6b52e752ba21425435ff3dd361d6ac271531fc1d2144843a9f550ad01
         let mut key = "026c468be64d22761c30cd2f12cbc7de255d592d7904b1bab07236897cc4c2e766"
@@ -1661,6 +1648,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn p2tr_from_untweaked() {
         //Test case from BIP-086
         let internal_key = XOnlyPublicKey::from_str(
@@ -1678,6 +1666,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_is_related_to_pubkey_p2wpkh() {
         let address_string = "bc1qhvd6suvqzjcu9pxjhrwhtrlj85ny3n2mqql5w4";
         let address = Address::from_str(address_string)
@@ -1699,6 +1688,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_is_related_to_pubkey_p2shwpkh() {
         let address_string = "3EZQk4F8GURH5sqVMLTFisD17yNeKa7Dfs";
         let address = Address::from_str(address_string)
@@ -1720,6 +1710,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_is_related_to_pubkey_p2pkh() {
         let address_string = "1J4LVanjHMu3JkXbVrahNuQCTGCRRgfWWx";
         let address = Address::from_str(address_string)
@@ -1741,6 +1732,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_is_related_to_pubkey_p2pkh_uncompressed_key() {
         let address_string = "msvS7KzhReCDpQEJaV2hmGNvuQqVUDuC6p";
         let address = Address::from_str(address_string)
@@ -1762,6 +1754,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_is_related_to_pubkey_p2tr() {
         let pubkey_string = "0347ff3dacd07a1f43805ec6808e801505a6e18245178609972a68afbc2777ff2b";
         let pubkey = PublicKey::from_str(pubkey_string).expect("pubkey");
@@ -1788,6 +1781,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_is_related_to_xonly_pubkey() {
         let pubkey_string = "0347ff3dacd07a1f43805ec6808e801505a6e18245178609972a68afbc2777ff2b";
         let pubkey = PublicKey::from_str(pubkey_string).expect("pubkey");

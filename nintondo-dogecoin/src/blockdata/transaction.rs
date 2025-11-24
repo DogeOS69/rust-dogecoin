@@ -12,16 +12,11 @@
 //! This module provides the structures and functions needed to support transactions.
 //!
 
-use crate::prelude::*;
-
-use crate::io;
-use crate::string::FromHexStr;
 use core::convert::TryFrom;
-use core::{cmp, default::Default, fmt, str};
+use core::default::Default;
+use core::{cmp, fmt, str};
 
 use bitcoin_internals::write_err;
-
-use crate::hashes::{self, sha256d, Hash};
 
 use super::Weight;
 use crate::blockdata::constants::WITNESS_SCALE_FACTOR;
@@ -29,17 +24,22 @@ use crate::blockdata::locktime::absolute::{self, Height, Time};
 use crate::blockdata::locktime::relative;
 #[cfg(feature = "bitcoinconsensus")]
 use crate::blockdata::script;
-use crate::blockdata::script::{Script, ScriptBuf};
+#[cfg(feature = "secp256k1")]
+use crate::blockdata::script::Script;
+use crate::blockdata::script::ScriptBuf;
 use crate::blockdata::witness::Witness;
 use crate::consensus::{encode, Decodable, Encodable};
+#[cfg(feature = "secp256k1")]
 use crate::crypto::sighash::LegacySighash;
 use crate::hash_types::{Txid, Wtxid};
+use crate::hashes::{self, sha256d, Hash};
 use crate::internal_macros::impl_consensus_encoding;
 use crate::parse::impl_parse_str_from_int_infallible;
-use crate::VarInt;
-
+use crate::prelude::*;
 #[cfg(doc)]
 use crate::sighash::{EcdsaSighashType, TapSighashType};
+use crate::string::FromHexStr;
+use crate::{io, VarInt};
 
 /// A reference to a transaction output.
 ///
@@ -59,17 +59,13 @@ crate::serde_utils::serde_struct_human_string_impl!(OutPoint, "an OutPoint", txi
 impl OutPoint {
     /// Creates a new [`OutPoint`].
     #[inline]
-    pub fn new(txid: Txid, vout: u32) -> OutPoint {
-        OutPoint { txid, vout }
-    }
+    pub fn new(txid: Txid, vout: u32) -> OutPoint { OutPoint { txid, vout } }
 
     /// Creates a "null" `OutPoint`.
     ///
     /// This value is used for coinbase transactions because they don't have any previous outputs.
     #[inline]
-    pub fn null() -> OutPoint {
-        OutPoint { txid: Hash::all_zeros(), vout: u32::max_value() }
-    }
+    pub fn null() -> OutPoint { OutPoint { txid: Hash::all_zeros(), vout: u32::max_value() } }
 
     /// Checks if an `OutPoint` is "null".
     ///
@@ -86,15 +82,11 @@ impl OutPoint {
     /// assert!(tx.input[0].previous_output.is_null());
     /// ```
     #[inline]
-    pub fn is_null(&self) -> bool {
-        *self == OutPoint::null()
-    }
+    pub fn is_null(&self) -> bool { *self == OutPoint::null() }
 }
 
 impl Default for OutPoint {
-    fn default() -> Self {
-        OutPoint::null()
-    }
+    fn default() -> Self { OutPoint::null() }
 }
 
 impl fmt::Display for OutPoint {
@@ -194,7 +186,6 @@ impl core::str::FromStr for OutPoint {
 /// * [CTxIn definition](https://github.com/bitcoin/bitcoin/blob/345457b542b6a980ccfbc868af0970a6f91d1b82/src/primitives/transaction.h#L65)
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(crate = "actual_serde"))]
 pub struct TxIn {
     /// The reference to the previous output that is being used an an input.
     pub previous_output: OutPoint,
@@ -224,9 +215,7 @@ impl TxIn {
     ///  this input then the script execution will fail [BIP-0065].
     ///
     /// [BIP-65](https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki)
-    pub fn enables_lock_time(&self) -> bool {
-        self.sequence != Sequence::MAX
-    }
+    pub fn enables_lock_time(&self) -> bool { self.sequence != Sequence::MAX }
 
     /// The weight of the TxIn when it's included in a legacy transaction (i.e., a transaction
     /// having only legacy inputs).
@@ -256,9 +245,7 @@ impl TxIn {
     /// - the new input added causes the input length `VarInt` to increase its encoding length
     /// - the new input is the first segwit input added - this will add an additional 2WU to the
     ///   transaction weight to take into account the segwit marker
-    pub fn segwit_weight(&self) -> usize {
-        self.legacy_weight() + self.witness.serialized_len()
-    }
+    pub fn segwit_weight(&self) -> usize { self.legacy_weight() + self.witness.serialized_len() }
 }
 
 impl Default for TxIn {
@@ -288,7 +275,6 @@ impl Default for TxIn {
 /// [BIP-125]: <https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki>
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(crate = "actual_serde"))]
 pub struct Sequence(pub u32);
 
 impl Sequence {
@@ -323,15 +309,11 @@ impl Sequence {
     /// The maximum allowable sequence number.
     ///
     /// This is provided for consistency with Rust 1.41.1, newer code should use [`Sequence::MAX`].
-    pub const fn max_value() -> Self {
-        Self::MAX
-    }
+    pub const fn max_value() -> Self { Self::MAX }
 
     /// Returns `true` if the sequence number enables absolute lock-time ([`Transaction::lock_time`]).
     #[inline]
-    pub fn enables_absolute_lock_time(&self) -> bool {
-        *self != Sequence::MAX
-    }
+    pub fn enables_absolute_lock_time(&self) -> bool { *self != Sequence::MAX }
 
     /// Returns `true` if the sequence number indicates that the transaction is finalized.
     ///
@@ -353,18 +335,14 @@ impl Sequence {
     ///
     /// [BIP-112]: <https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki>
     #[inline]
-    pub fn is_final(&self) -> bool {
-        !self.enables_absolute_lock_time()
-    }
+    pub fn is_final(&self) -> bool { !self.enables_absolute_lock_time() }
 
     /// Returns true if the transaction opted-in to BIP125 replace-by-fee.
     ///
     /// Replace by fee is signaled by the sequence being less than 0xfffffffe which is checked by
     /// this method. Note, this is the highest "non-final" value (see [`Sequence::is_final`]).
     #[inline]
-    pub fn is_rbf(&self) -> bool {
-        *self < Sequence::MIN_NO_RBF
-    }
+    pub fn is_rbf(&self) -> bool { *self < Sequence::MIN_NO_RBF }
 
     /// Returns `true` if the sequence has a relative lock-time.
     #[inline]
@@ -386,9 +364,7 @@ impl Sequence {
 
     /// Creates a relative lock-time using block height.
     #[inline]
-    pub fn from_height(height: u16) -> Self {
-        Sequence(u32::from(height))
-    }
+    pub fn from_height(height: u16) -> Self { Sequence(u32::from(height)) }
 
     /// Creates a relative lock-time using time intervals where each interval is equivalent
     /// to 512 seconds.
@@ -427,15 +403,11 @@ impl Sequence {
 
     /// Creates a sequence from a u32 value.
     #[inline]
-    pub fn from_consensus(n: u32) -> Self {
-        Sequence(n)
-    }
+    pub fn from_consensus(n: u32) -> Self { Sequence(n) }
 
     /// Returns the inner 32bit integer value of Sequence.
     #[inline]
-    pub fn to_consensus_u32(self) -> u32 {
-        self.0
-    }
+    pub fn to_consensus_u32(self) -> u32 { self.0 }
 
     /// Creates a [`relative::LockTime`] from this [`Sequence`] number.
     #[inline]
@@ -458,9 +430,7 @@ impl Sequence {
     /// Returns the low 16 bits from sequence number.
     ///
     /// BIP-68 only uses the low 16 bits for relative lock value.
-    fn low_u16(&self) -> u16 {
-        self.0 as u16
-    }
+    fn low_u16(&self) -> u16 { self.0 as u16 }
 }
 
 impl FromHexStr for Sequence {
@@ -474,33 +444,23 @@ impl FromHexStr for Sequence {
 
 impl Default for Sequence {
     /// The default value of sequence is 0xffffffff.
-    fn default() -> Self {
-        Sequence::MAX
-    }
+    fn default() -> Self { Sequence::MAX }
 }
 
 impl From<Sequence> for u32 {
-    fn from(sequence: Sequence) -> u32 {
-        sequence.0
-    }
+    fn from(sequence: Sequence) -> u32 { sequence.0 }
 }
 
 impl fmt::Display for Sequence {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.0, f)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Display::fmt(&self.0, f) }
 }
 
 impl fmt::LowerHex for Sequence {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::LowerHex::fmt(&self.0, f)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::LowerHex::fmt(&self.0, f) }
 }
 
 impl fmt::UpperHex for Sequence {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::UpperHex::fmt(&self.0, f)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::UpperHex::fmt(&self.0, f) }
 }
 
 impl_parse_str_from_int_infallible!(Sequence, u32, from_consensus);
@@ -518,7 +478,6 @@ impl_parse_str_from_int_infallible!(Sequence, u32, from_consensus);
 /// * [CTxOut definition](https://github.com/bitcoin/bitcoin/blob/345457b542b6a980ccfbc868af0970a6f91d1b82/src/primitives/transaction.h#L148)
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(crate = "actual_serde"))]
 pub struct TxOut {
     /// The value of the output, in satoshis.
     pub value: u64,
@@ -563,9 +522,7 @@ impl TxOut {
 
 // This is used as a "null txout" in consensus signing code.
 impl Default for TxOut {
-    fn default() -> TxOut {
-        TxOut { value: 0xffffffffffffffff, script_pubkey: ScriptBuf::new() }
-    }
+    fn default() -> TxOut { TxOut { value: 0xffffffffffffffff, script_pubkey: ScriptBuf::new() } }
 }
 
 /// Result of [`Transaction::encode_signing_data_to`].
@@ -629,12 +586,10 @@ impl<E> EncodeSigningDataResult<E> {
     {
         match self {
             EncodeSigningDataResult::SighashSingleBug => EncodeSigningDataResult::SighashSingleBug,
-            EncodeSigningDataResult::WriteResult(Err(e)) => {
-                EncodeSigningDataResult::WriteResult(Err(f(e)))
-            }
-            EncodeSigningDataResult::WriteResult(Ok(o)) => {
-                EncodeSigningDataResult::WriteResult(Ok(o))
-            }
+            EncodeSigningDataResult::WriteResult(Err(e)) =>
+                EncodeSigningDataResult::WriteResult(Err(f(e))),
+            EncodeSigningDataResult::WriteResult(Ok(o)) =>
+                EncodeSigningDataResult::WriteResult(Ok(o)),
         }
     }
 }
@@ -696,7 +651,6 @@ impl<E> EncodeSigningDataResult<E> {
 /// transitioning from 0.29 to 0.30.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(crate = "actual_serde"))]
 pub struct Transaction {
     /// The protocol version, is currently expected to be 1 or 2 (BIP 68).
     pub version: i32,
@@ -714,9 +668,7 @@ pub struct Transaction {
 }
 
 impl cmp::PartialOrd for Transaction {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
-    }
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> { Some(self.cmp(other)) }
 }
 impl cmp::Ord for Transaction {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
@@ -806,6 +758,7 @@ impl Transaction {
         since = "0.30.0",
         note = "Use SighashCache::legacy_encode_signing_data_to instead"
     )]
+    #[cfg(feature = "secp256k1")]
     pub fn encode_signing_data_to<Write: io::Write, U: Into<u32>>(
         &self,
         writer: Write,
@@ -813,8 +766,9 @@ impl Transaction {
         script_pubkey: &Script,
         sighash_type: U,
     ) -> EncodeSigningDataResult<io::Error> {
-        use crate::sighash::{self, SighashCache};
         use EncodeSigningDataResult::*;
+
+        use crate::sighash::{self, SighashCache};
 
         assert!(input_index < self.input.len()); // Panic on OOB
 
@@ -856,6 +810,7 @@ impl Transaction {
     ///
     /// If `input_index` is out of bounds (greater than or equal to `self.input.len()`).
     #[deprecated(since = "0.30.0", note = "Use SighashCache::legacy_signature_hash instead")]
+    #[cfg(feature = "secp256k1")]
     pub fn signature_hash(
         &self,
         input_index: usize,
@@ -892,9 +847,7 @@ impl Transaction {
 
     /// Returns the regular byte-wise consensus-serialized size of this transaction.
     #[inline]
-    pub fn size(&self) -> usize {
-        self.scaled_size(1)
-    }
+    pub fn size(&self) -> usize { self.scaled_size(1) }
 
     /// Computes the weight and checks that it matches the output of `predict_weight`.
     #[cfg(test)]
@@ -1067,9 +1020,7 @@ impl Transaction {
     /// Returns `true` if this transactions nLockTime is enabled ([BIP-65]).
     ///
     /// [BIP-65]: https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki
-    pub fn is_lock_time_enabled(&self) -> bool {
-        self.input.iter().any(|i| i.enables_lock_time())
-    }
+    pub fn is_lock_time_enabled(&self) -> bool { self.input.iter().any(|i| i.enables_lock_time()) }
 
     /// Returns an iterator over lengths of `script_pubkey`s in the outputs.
     ///
@@ -1207,27 +1158,19 @@ impl Decodable for Transaction {
 }
 
 impl From<Transaction> for Txid {
-    fn from(tx: Transaction) -> Txid {
-        tx.txid()
-    }
+    fn from(tx: Transaction) -> Txid { tx.txid() }
 }
 
 impl From<&Transaction> for Txid {
-    fn from(tx: &Transaction) -> Txid {
-        tx.txid()
-    }
+    fn from(tx: &Transaction) -> Txid { tx.txid() }
 }
 
 impl From<Transaction> for Wtxid {
-    fn from(tx: Transaction) -> Wtxid {
-        tx.wtxid()
-    }
+    fn from(tx: Transaction) -> Wtxid { tx.wtxid() }
 }
 
 impl From<&Transaction> for Wtxid {
-    fn from(tx: &Transaction) -> Wtxid {
-        tx.wtxid()
-    }
+    fn from(tx: &Transaction) -> Wtxid { tx.wtxid() }
 }
 
 /// Predicts the weight of a to-be-constructed transaction.
@@ -1485,19 +1428,17 @@ impl InputWeightPrediction {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use core::str::FromStr;
 
+    use super::*;
     use crate::blockdata::constants::WITNESS_SCALE_FACTOR;
     use crate::blockdata::locktime::absolute;
     use crate::blockdata::script::ScriptBuf;
-    use crate::consensus::encode::deserialize;
-    use crate::consensus::encode::serialize;
-    use crate::sighash::EcdsaSighashType;
-
+    use crate::consensus::encode::{deserialize, serialize};
     use crate::hashes::hex::FromHex;
     use crate::internal_macros::hex;
+    #[cfg(feature = "secp256k1")]
+    use crate::sighash::EcdsaSighashType;
 
     const SOME_TX: &str = "0100000001a15d57094aa7a21a28cb20b59aab8fc7d1149a3bdbcddba9c622e4f5f6a99ece010000006c493046022100f93bb0e7d8db7bd46e40132d1f8242026e045f03a0efe71bbb8e3f475e970d790221009337cd7f1f929f00cc6ff01f03729b069a7c21b59b1736ddfee5db5946c5da8c0121033b9b137ee87d5a812d6f506efdd37f0affa7ffc310711c06c7f3e097c9447c52ffffffff0100e1f505000000001976a9140389035a9225b3839e2bbf32d826a1e222031fd888ac00000000";
 
@@ -1863,6 +1804,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "secp256k1")]
     fn test_sighashtype_fromstr_display() {
         let sighashtypes = vec![
             ("SIGHASH_ALL", EcdsaSighashType::All),
@@ -1905,9 +1847,10 @@ mod tests {
     #[test]
     #[cfg(feature = "bitcoinconsensus")]
     fn test_transaction_verify() {
+        use std::collections::HashMap;
+
         use crate::blockdata::script;
         use crate::blockdata::witness::Witness;
-        use std::collections::HashMap;
 
         // a random recent segwit transaction from blockchain using both old and segwit inputs
         let mut spending: Transaction = deserialize(hex!("020000000001031cfbc8f54fbfa4a33a30068841371f80dbfe166211242213188428f437445c91000000006a47304402206fbcec8d2d2e740d824d3d36cc345b37d9f65d665a99f5bd5c9e8d42270a03a8022013959632492332200c2908459547bf8dbf97c65ab1a28dec377d6f1d41d3d63e012103d7279dfb90ce17fe139ba60a7c41ddf605b25e1c07a4ddcb9dfef4e7d6710f48feffffff476222484f5e35b3f0e43f65fc76e21d8be7818dd6a989c160b1e5039b7835fc00000000171600140914414d3c94af70ac7e25407b0689e0baa10c77feffffffa83d954a62568bbc99cc644c62eb7383d7c2a2563041a0aeb891a6a4055895570000000017160014795d04cc2d4f31480d9a3710993fbd80d04301dffeffffff06fef72f000000000017a91476fd7035cd26f1a32a5ab979e056713aac25796887a5000f00000000001976a914b8332d502a529571c6af4be66399cd33379071c588ac3fda0500000000001976a914fc1d692f8de10ae33295f090bea5fe49527d975c88ac522e1b00000000001976a914808406b54d1044c429ac54c0e189b0d8061667e088ac6eb68501000000001976a914dfab6085f3a8fb3e6710206a5a959313c5618f4d88acbba20000000000001976a914eb3026552d7e3f3073457d0bee5d4757de48160d88ac0002483045022100bee24b63212939d33d513e767bc79300051f7a0d433c3fcf1e0e3bf03b9eb1d70220588dc45a9ce3a939103b4459ce47500b64e23ab118dfc03c9caa7d6bfc32b9c601210354fd80328da0f9ae6eef2b3a81f74f9a6f66761fadf96f1d1d22b1fd6845876402483045022100e29c7e3a5efc10da6269e5fc20b6a1cb8beb92130cc52c67e46ef40aaa5cac5f0220644dd1b049727d991aece98a105563416e10a5ac4221abac7d16931842d5c322012103960b87412d6e169f30e12106bdf70122aabb9eb61f455518322a18b920a4dfa887d30700")

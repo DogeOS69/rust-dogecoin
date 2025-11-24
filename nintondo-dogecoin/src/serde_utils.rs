@@ -21,6 +21,7 @@ impl<'a> serde::Serialize for SerializeBytesAsHex<'a> {
 pub mod btreemap_byte_values {
     //! Module for serialization of BTreeMaps with hex byte values.
     #![allow(missing_docs)]
+    #![allow(dead_code)]
 
     // NOTE: This module can be exactly copied to use with HashMap.
 
@@ -91,6 +92,7 @@ pub mod btreemap_as_seq {
     //! Module for serialization of BTreeMaps as lists of sequences because
     //! serde_json will not serialize hashmaps with non-string keys be default.
     #![allow(missing_docs)]
+    #![allow(dead_code)]
 
     // NOTE: This module can be exactly copied to use with HashMap.
 
@@ -163,6 +165,7 @@ pub mod btreemap_as_seq_byte_values {
     //! Module for serialization of BTreeMaps as lists of sequences because
     //! serde_json will not serialize hashmaps with non-string keys be default.
     #![allow(missing_docs)]
+    #![allow(dead_code)]
 
     // NOTE: This module can be exactly copied to use with HashMap.
 
@@ -172,7 +175,6 @@ pub mod btreemap_as_seq_byte_values {
 
     /// A custom key-value pair type that serialized the bytes as hex.
     #[derive(Debug, Deserialize)]
-    #[serde(crate = "actual_serde")]
     struct OwnedPair<T>(
         T,
         #[serde(deserialize_with = "crate::serde_utils::hex_bytes::deserialize")] Vec<u8>,
@@ -180,7 +182,6 @@ pub mod btreemap_as_seq_byte_values {
 
     /// A custom key-value pair type that serialized the bytes as hex.
     #[derive(Debug, Serialize)]
-    #[serde(crate = "actual_serde")]
     struct BorrowedPair<'a, T: 'static>(
         &'a T,
         #[serde(serialize_with = "crate::serde_utils::hex_bytes::serialize")] &'a [u8],
@@ -351,12 +352,14 @@ macro_rules! serde_string_deserialize_impl {
     };
 }
 
+#[allow(unused)]
 macro_rules! serde_string_impl {
     ($name:ty, $expecting:literal) => {
         $crate::serde_utils::serde_string_deserialize_impl!($name, $expecting);
         $crate::serde_utils::serde_string_serialize_impl!($name, $expecting);
     };
 }
+#[allow(unused_imports)]
 pub(crate) use {serde_string_deserialize_impl, serde_string_impl, serde_string_serialize_impl};
 
 /// A combination macro where the human-readable serialization is done like

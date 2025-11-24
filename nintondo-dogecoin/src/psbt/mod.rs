@@ -7,24 +7,22 @@
 //! except we define PSBTs containing non-standard sighash types as invalid.
 //!
 
+use core::{cmp, fmt};
 #[cfg(feature = "std")]
 use std::collections::{HashMap, HashSet};
 
-use core::{cmp, fmt};
-
 use bitcoin_internals::write_err;
 use secp256k1::{Message, Secp256k1, Signing};
-
-use crate::{prelude::*, Amount};
 
 use crate::bip32::{self, ExtendedPrivKey, ExtendedPubKey, KeySource};
 use crate::blockdata::script::ScriptBuf;
 use crate::blockdata::transaction::{Transaction, TxOut};
 use crate::crypto::ecdsa;
 use crate::crypto::key::{PrivateKey, PublicKey};
-use crate::sighash::{self, EcdsaSighashType, SighashCache};
-
+use crate::prelude::*;
 pub use crate::sighash::Prevouts;
+use crate::sighash::{self, EcdsaSighashType, SighashCache};
+use crate::Amount;
 
 #[macro_use]
 mod macros;
@@ -43,7 +41,6 @@ pub type Psbt = PartiallySignedTransaction;
 /// A Partially Signed Transaction.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(crate = "actual_serde"))]
 pub struct PartiallySignedTransaction {
     /// The unsigned transaction, scriptSigs and witnesses for each input must be empty.
     pub unsigned_tx: Transaction,
@@ -596,9 +593,8 @@ impl fmt::Display for GetKeyError {
 
         match *self {
             Bip32(ref e) => write_err!(f, "a bip23 error"; e),
-            NotSupported => {
-                f.write_str("the GetKey operation is not supported for this key request")
-            }
+            NotSupported =>
+                f.write_str("the GetKey operation is not supported for this key request"),
         }
     }
 }
@@ -617,9 +613,7 @@ impl std::error::Error for GetKeyError {
 }
 
 impl From<bip32::Error> for GetKeyError {
-    fn from(e: bip32::Error) -> Self {
-        GetKeyError::Bip32(e)
-    }
+    fn from(e: bip32::Error) -> Self { GetKeyError::Bip32(e) }
 }
 
 /// The various output types supported by the Dogecoin network.
@@ -753,18 +747,18 @@ impl std::error::Error for SignError {
 }
 
 impl From<sighash::Error> for SignError {
-    fn from(e: sighash::Error) -> Self {
-        SignError::SighashComputation(e)
-    }
+    fn from(e: sighash::Error) -> Self { SignError::SighashComputation(e) }
 }
 
 #[cfg(feature = "base64")]
 mod display_from_str {
-    use super::{Error, PartiallySignedTransaction};
-    use base64::display::Base64Display;
-    use bitcoin_internals::write_err;
     use core::fmt::{self, Display, Formatter};
     use core::str::FromStr;
+
+    use base64::display::Base64Display;
+    use bitcoin_internals::write_err;
+
+    use super::{Error, PartiallySignedTransaction};
 
     /// Error encountered during PSBT decoding from Base64 string.
     #[derive(Debug)]
@@ -824,26 +818,24 @@ pub use self::display_from_str::PsbtParseError;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use crate::blockdata::locktime::absolute;
-    use crate::hashes::{hash160, ripemd160, sha256, Hash};
-    use crate::psbt::serialize::{Deserialize, Serialize};
+    use std::collections::BTreeMap;
 
     use secp256k1::{self, Secp256k1};
     #[cfg(feature = "rand-std")]
     use secp256k1::{All, SecretKey};
 
+    use super::*;
     use crate::bip32::{ChildNumber, ExtendedPrivKey, ExtendedPubKey, KeySource};
+    use crate::blockdata::locktime::absolute;
     use crate::blockdata::script::ScriptBuf;
     use crate::blockdata::transaction::{OutPoint, Sequence, Transaction, TxIn, TxOut};
+    use crate::blockdata::witness::Witness;
+    use crate::hashes::{hash160, ripemd160, sha256, Hash};
     use crate::internal_macros::hex;
     use crate::network::constants::Network::Dogecoin;
     use crate::psbt::map::{Input, Output};
     use crate::psbt::raw;
-
-    use crate::blockdata::witness::Witness;
-    use std::collections::BTreeMap;
+    use crate::psbt::serialize::{Deserialize, Serialize};
 
     #[test]
     fn trivial_psbt() {
@@ -1096,11 +1088,11 @@ mod tests {
     }
 
     mod bip_vectors {
-        use super::*;
-
+        use std::collections::BTreeMap;
         #[cfg(feature = "base64")]
         use std::str::FromStr;
 
+        use super::*;
         use crate::blockdata::locktime::absolute;
         use crate::blockdata::script::ScriptBuf;
         use crate::blockdata::transaction::{OutPoint, Sequence, Transaction, TxIn, TxOut};
@@ -1108,7 +1100,6 @@ mod tests {
         use crate::psbt::map::{Input, Map, Output};
         use crate::psbt::{raw, Error, PartiallySignedTransaction};
         use crate::sighash::EcdsaSighashType;
-        use std::collections::BTreeMap;
 
         #[test]
         #[should_panic(expected = "InvalidMagic")]
