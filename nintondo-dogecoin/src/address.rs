@@ -38,8 +38,8 @@ use secp256k1::{Secp256k1, Verification, XOnlyPublicKey};
 
 use crate::base58;
 use crate::blockdata::constants::{
-    MAX_SCRIPT_ELEMENT_SIZE, PUBKEY_ADDRESS_PREFIX_MAIN, PUBKEY_ADDRESS_PREFIX_TEST,
-    SCRIPT_ADDRESS_PREFIX_MAIN, SCRIPT_ADDRESS_PREFIX_TEST,
+    MAX_SCRIPT_ELEMENT_SIZE, PUBKEY_ADDRESS_PREFIX_MAIN, PUBKEY_ADDRESS_PREFIX_REGTEST,
+    PUBKEY_ADDRESS_PREFIX_TEST, SCRIPT_ADDRESS_PREFIX_MAIN, SCRIPT_ADDRESS_PREFIX_TEST,
 };
 use crate::blockdata::opcodes;
 use crate::blockdata::opcodes::all::*;
@@ -821,16 +821,17 @@ impl<V: NetworkValidation> Address<V> {
     fn fmt_internal(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let p2pkh_prefix = match self.network {
             Network::Dogecoin => PUBKEY_ADDRESS_PREFIX_MAIN,
-            Network::Testnet | Network::Signet | Network::Regtest => PUBKEY_ADDRESS_PREFIX_TEST,
+            Network::Testnet | Network::Signet => PUBKEY_ADDRESS_PREFIX_TEST,
+            Network::Regtest => PUBKEY_ADDRESS_PREFIX_REGTEST,
         };
         let p2sh_prefix = match self.network {
             Network::Dogecoin => SCRIPT_ADDRESS_PREFIX_MAIN,
             Network::Testnet | Network::Signet | Network::Regtest => SCRIPT_ADDRESS_PREFIX_TEST,
         };
         let bech32_hrp = match self.network {
-            Network::Dogecoin => "bc",
-            Network::Testnet | Network::Signet => "tb",
-            Network::Regtest => "bcrt",
+            Network::Dogecoin => "doge",
+            Network::Testnet | Network::Signet => "tdge",
+            Network::Regtest => "ncrt",
         };
         let encoding =
             AddressEncoding { payload: &self.payload, p2pkh_prefix, p2sh_prefix, bech32_hrp };
@@ -1051,16 +1052,19 @@ impl Address<NetworkUnchecked> {
     /// assert_eq!(address.is_valid_for_network(Network::Testnet), false);
     /// ```
     pub fn is_valid_for_network(&self, network: Network) -> bool {
-        let is_legacy = match self.address_type_internal() {
-            Some(AddressType::P2pkh) | Some(AddressType::P2sh) => true,
+        let is_p2sh = match self.address_type_internal() {
+            Some(AddressType::P2sh) => true,
             _ => false,
         };
 
         match (self.network, network) {
             (a, b) if a == b => true,
             (Network::Dogecoin, _) | (_, Network::Dogecoin) => false,
-            (Network::Regtest, _) | (_, Network::Regtest) if !is_legacy => false,
-            (Network::Testnet, _) | (Network::Regtest, _) | (Network::Signet, _) => true,
+            // Testnet and Signet share everything (P2PKH, P2SH, Bech32)
+            (Network::Testnet, Network::Signet) | (Network::Signet, Network::Testnet) => true,
+            // Regtest only shares P2SH with Testnet/Signet
+            (Network::Testnet, _) | (Network::Regtest, _) | (Network::Signet, _) if is_p2sh => true,
+            _ => false,
         }
     }
 
@@ -1146,9 +1150,9 @@ impl FromStr for Address<NetworkUnchecked> {
         // try bech32
         let bech32_network = match find_bech32_prefix(s) {
             // note that upper or lowercase is allowed but NOT mixed case
-            "bc" | "BC" => Some(Network::Dogecoin),
-            "tb" | "TB" => Some(Network::Testnet), // this may also be signet
-            "bcrt" | "BCRT" => Some(Network::Regtest),
+            "doge" | "DOGE" => Some(Network::Dogecoin),
+            "tdge" | "TDGE" => Some(Network::Testnet), // this may also be signet
+            "ncrt" | "NCRT" => Some(Network::Regtest),
             _ => None,
         };
         if let Some(network) = bech32_network {
@@ -1195,6 +1199,9 @@ impl FromStr for Address<NetworkUnchecked> {
             ),
             PUBKEY_ADDRESS_PREFIX_TEST => {
                 (Network::Testnet, Payload::PubkeyHash(PubkeyHash::from_slice(&data[1..]).unwrap()))
+            }
+            PUBKEY_ADDRESS_PREFIX_REGTEST => {
+                (Network::Regtest, Payload::PubkeyHash(PubkeyHash::from_slice(&data[1..]).unwrap()))
             }
             SCRIPT_ADDRESS_PREFIX_TEST => {
                 (Network::Testnet, Payload::ScriptHash(ScriptHash::from_slice(&data[1..]).unwrap()))
