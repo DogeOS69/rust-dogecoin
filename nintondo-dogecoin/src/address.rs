@@ -847,6 +847,46 @@ impl<V: NetworkValidation> Address<V> {
     pub fn new(network: Network, payload: Payload) -> Address<V> {
         Address { network, payload, _validation: PhantomData }
     }
+
+    /// Checks whether this address is valid for the given network.
+    ///
+    /// Parsed addresses do not always have *one* network. The problem is that legacy testnet,
+    /// regtest and signet addresse use the same prefix instead of multiple different ones. When
+    /// parsing, such addresses are always assumed to be testnet addresses (the same is true for
+    /// bech32 signet addresses). So if one wants to check if an address belongs to a certain
+    /// network a simple comparison is not enough anymore. Instead this function can be used.
+    ///
+    /// ```rust
+    /// use nintondo_dogecoin::{Address, Network};
+    /// use nintondo_dogecoin::address::NetworkUnchecked;
+    ///
+    /// let address: Address<NetworkUnchecked> = "2N83imGV3gPwBzKJQvWJ7cRUY2SpUyU6A5e".parse().unwrap();
+    /// assert!(address.is_valid_for_network(Network::Testnet));
+    /// assert!(address.is_valid_for_network(Network::Regtest));
+    /// assert!(address.is_valid_for_network(Network::Signet));
+    ///
+    /// assert_eq!(address.is_valid_for_network(Network::Dogecoin), false);
+    ///
+    /// let address: Address<NetworkUnchecked> = "32iVBEu4dxkUQk9dJbZUiBiQdmypcEyJRf".parse().unwrap();
+    /// assert!(address.is_valid_for_network(Network::Dogecoin));
+    /// assert_eq!(address.is_valid_for_network(Network::Testnet), false);
+    /// ```
+    pub fn is_valid_for_network(&self, network: Network) -> bool {
+        let is_p2sh = match self.address_type_internal() {
+            Some(AddressType::P2sh) => true,
+            _ => false,
+        };
+
+        match (self.network, network) {
+            (a, b) if a == b => true,
+            (Network::Dogecoin, _) | (_, Network::Dogecoin) => false,
+            // Testnet and Signet share everything (P2PKH, P2SH, Bech32)
+            (Network::Testnet, Network::Signet) | (Network::Signet, Network::Testnet) => true,
+            // Regtest only shares P2SH with Testnet/Signet
+            (Network::Testnet, _) | (Network::Regtest, _) | (Network::Signet, _) if is_p2sh => true,
+            _ => false,
+        }
+    }
 }
 
 /// Methods and functions that can be called only on `Address<NetworkChecked>`.
@@ -1030,43 +1070,6 @@ impl Address {
 
 /// Methods that can be called only on `Address<NetworkUnchecked>`.
 impl Address<NetworkUnchecked> {
-    /// Parsed addresses do not always have *one* network. The problem is that legacy testnet,
-    /// regtest and signet addresse use the same prefix instead of multiple different ones. When
-    /// parsing, such addresses are always assumed to be testnet addresses (the same is true for
-    /// bech32 signet addresses). So if one wants to check if an address belongs to a certain
-    /// network a simple comparison is not enough anymore. Instead this function can be used.
-    ///
-    /// ```rust
-    /// use nintondo_dogecoin::{Address, Network};
-    /// use nintondo_dogecoin::address::NetworkUnchecked;
-    ///
-    /// let address: Address<NetworkUnchecked> = "2N83imGV3gPwBzKJQvWJ7cRUY2SpUyU6A5e".parse().unwrap();
-    /// assert!(address.is_valid_for_network(Network::Testnet));
-    /// assert!(address.is_valid_for_network(Network::Regtest));
-    /// assert!(address.is_valid_for_network(Network::Signet));
-    ///
-    /// assert_eq!(address.is_valid_for_network(Network::Dogecoin), false);
-    ///
-    /// let address: Address<NetworkUnchecked> = "32iVBEu4dxkUQk9dJbZUiBiQdmypcEyJRf".parse().unwrap();
-    /// assert!(address.is_valid_for_network(Network::Dogecoin));
-    /// assert_eq!(address.is_valid_for_network(Network::Testnet), false);
-    /// ```
-    pub fn is_valid_for_network(&self, network: Network) -> bool {
-        let is_p2sh = match self.address_type_internal() {
-            Some(AddressType::P2sh) => true,
-            _ => false,
-        };
-
-        match (self.network, network) {
-            (a, b) if a == b => true,
-            (Network::Dogecoin, _) | (_, Network::Dogecoin) => false,
-            // Testnet and Signet share everything (P2PKH, P2SH, Bech32)
-            (Network::Testnet, Network::Signet) | (Network::Signet, Network::Testnet) => true,
-            // Regtest only shares P2SH with Testnet/Signet
-            (Network::Testnet, _) | (Network::Regtest, _) | (Network::Signet, _) if is_p2sh => true,
-            _ => false,
-        }
-    }
 
     /// Checks whether network of this address is as required.
     ///
@@ -1647,7 +1650,7 @@ mod tests {
                         .filter(|ec| ec.contains(addr_net))
                         .flat_map(|ec| ec.iter())
                     {
-                        let addr = Address::new(*addr_net, pl.clone());
+                        let addr: Address<NetworkUnchecked> = Address::new(*addr_net, pl.clone());
                         assert!(addr.is_valid_for_network(*valid_net));
                     }
 
@@ -1656,7 +1659,7 @@ mod tests {
                         .filter(|ec| !ec.contains(addr_net))
                         .flat_map(|ec| ec.iter())
                     {
-                        let addr = Address::new(*addr_net, pl.clone());
+                        let addr: Address<NetworkUnchecked> = Address::new(*addr_net, pl.clone());
                         assert!(!addr.is_valid_for_network(*invalid_net));
                     }
                 }
